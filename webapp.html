@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Snake Game</title>
+  <style>
+    body {
+      background-color: #111;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      font-family: sans-serif;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    canvas {
+      border: 2px solid #fff;
+      background-color: rgba(34, 34, 34, 0.9);
+      z-index: 1;
+    }
+
+    .corner-snake {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 180px; /* Smaller size */
+      height: auto;
+      object-fit: contain;
+      pointer-events: none;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <!-- 🐍 Snake image in the top-right corner -->
+  <img src="assets/img/clipart3037174.png" class="corner-snake" alt="Snake" />
+
+  <!-- 🎮 Game Canvas -->
+  <canvas id="game" width="400" height="400"></canvas>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const gridSize = 20;
+    const tileCount = canvas.width / gridSize;
+
+    let snake = [{ x: 10, y: 10 }];
+    let velocity = { x: 0, y: 0 };
+    let nextVelocity = { x: 0, y: 0 };
+    let food = { x: 15, y: 15 };
+    let score = 0;
+    let gameRunning = false;
+    let walls = [];
+    let directionChanged = false;
+
+    function gameLoop() {
+      if (!gameRunning) return;
+
+      velocity = { ...nextVelocity };
+      directionChanged = false;
+
+      update();
+      draw();
+    }
+
+    function update() {
+      const head = { x: snake[0].x + velocity.x, y: snake[0].y + velocity.y };
+
+      if (
+        head.x < 0 || head.y < 0 ||
+        head.x >= tileCount || head.y >= tileCount ||
+        snake.some(segment => segment.x === head.x && segment.y === head.y) ||
+        walls.some(w => w.x === head.x && w.y === head.y)
+      ) {
+        alert("Game Over! Your score: " + score);
+        resetGame();
+        return;
+      }
+
+      snake.unshift(head);
+
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+
+        if (score % 5 === 0 && score <= 30) {
+          spawnWalls();
+        }
+
+        do {
+          food = {
+            x: Math.floor(Math.random() * tileCount),
+            y: Math.floor(Math.random() * tileCount)
+          };
+        } while (
+          snake.some(s => s.x === food.x && s.y === food.y) ||
+          walls.some(w => w.x === food.x && w.y === food.y)
+        );
+      } else {
+        snake.pop();
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = '#222';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Food
+      ctx.fillStyle = 'red';
+      ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize, gridSize);
+
+      // Snake color by score
+      let snakeColor;
+      if (score <= 10) snakeColor = 'lime';
+      else if (score <= 20) snakeColor = 'orange';
+      else if (score <= 30) snakeColor = 'red';
+      else if (score <= 40) snakeColor = 'blue';
+      else if (score <= 50) snakeColor = 'purple';
+      else snakeColor = 'gold';
+
+      ctx.fillStyle = snakeColor;
+      snake.forEach(segment => {
+        ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+      });
+
+      // Walls
+      ctx.fillStyle = 'gray';
+      walls.forEach(wall => {
+        ctx.fillRect(wall.x * gridSize, wall.y * gridSize, gridSize, gridSize);
+      });
+
+      // Score
+      ctx.fillStyle = '#fff';
+      ctx.font = '18px Arial';
+      ctx.fillText("Score: " + score, 10, 20);
+    }
+
+    function spawnWalls() {
+      if (walls.length >= 18) return;
+
+      let newWalls = 0;
+      while (newWalls < 3 && walls.length < 18) {
+        let newWall = {
+          x: Math.floor(Math.random() * tileCount),
+          y: Math.floor(Math.random() * tileCount)
+        };
+
+        const head = snake[0];
+        const inFrontOfSnake = (
+          (velocity.x === 1 && newWall.x === head.x + 1 && newWall.y === head.y) ||
+          (velocity.x === -1 && newWall.x === head.x - 1 && newWall.y === head.y) ||
+          (velocity.y === 1 && newWall.y === head.y + 1 && newWall.x === head.x) ||
+          (velocity.y === -1 && newWall.y === head.y - 1 && newWall.x === head.x)
+        );
+
+        const overlaps = snake.some(s => s.x === newWall.x && s.y === newWall.y) ||
+                         walls.some(w => w.x === newWall.x && w.y === newWall.y) ||
+                         (food.x === newWall.x && food.y === newWall.y) ||
+                         inFrontOfSnake;
+
+        if (!overlaps) {
+          walls.push(newWall);
+          newWalls++;
+        }
+      }
+    }
+
+    function resetGame() {
+      snake = [{ x: 10, y: 10 }];
+      velocity = { x: 0, y: 0 };
+      nextVelocity = { x: 0, y: 0 };
+      food = { x: 15, y: 15 };
+      score = 0;
+      walls = [];
+      directionChanged = false;
+      gameRunning = false;
+      draw();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (!gameRunning) gameRunning = true;
+      if (directionChanged) return;
+
+      switch (e.key) {
+        case 'ArrowUp':
+          if (velocity.y === 0) {
+            nextVelocity = { x: 0, y: -1 };
+            directionChanged = true;
+          }
+          break;
+        case 'ArrowDown':
+          if (velocity.y === 0) {
+            nextVelocity = { x: 0, y: 1 };
+            directionChanged = true;
+          }
+          break;
+        case 'ArrowLeft':
+          if (velocity.x === 0) {
+            nextVelocity = { x: -1, y: 0 };
+            directionChanged = true;
+          }
+          break;
+        case 'ArrowRight':
+          if (velocity.x === 0) {
+            nextVelocity = { x: 1, y: 0 };
+            directionChanged = true;
+          }
+          break;
+      }
+    });
+
+    draw();
+    setInterval(gameLoop, 100);
+  </script>
+</body>
+</html>
